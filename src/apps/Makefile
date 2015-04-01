@@ -44,7 +44,7 @@ BIN_EECS467_VX_REXARM_DEMO = $(BIN_PATH)/vx_rexarm_demo
 BIN_EECS467_REXARM_MAIN = $(BIN_PATH)/eecs467_rexarm_main
 BIN_EECS467_BLOB_TEST = $(BIN_PATH)/eecs467_blob_test
 BIN_EECS467_ARM_TEST = $(BIN_PATH)/eecs467_arm_test
-BIN_EECS467_LCM_TEST = $(BIN_PATH)/eecs467_lcm_test
+BIN_EECS467_SEND_MESSAGE = $(BIN_PATH)/eecs467_send_message
 
 ALL = $(LIB_EECS467) \
 	$(BIN_EECS467_GUI_EXAMPLE) \
@@ -53,9 +53,9 @@ ALL = $(LIB_EECS467) \
 	$(BIN_EECS467_MAEBOT_VIDEO_TELOP) \
 	$(BIN_EECS467_VX_REXARM_DEMO) \
 	$(BIN_EECS467_REXARM_MAIN) \
-    	$(BIN_EECS467_BLOB_TEST) \
-    	$(BIN_EECS467_ARM_TEST) \
- 	$(BIN_EECS467_LCM_TEST)
+    $(BIN_EECS467_BLOB_TEST) \
+    $(BIN_EECS467_ARM_TEST) \
+    $(BIN_EECS467_SEND_MESSAGE)
 
 
 all: $(ALL)
@@ -96,9 +96,10 @@ $(BIN_EECS467_ARM_TEST): arm_test.o $(LIBDEPS)
 	@echo "\t$@"
 	@$(CXX) -o $@ $^ $(LDFLAGS)
 
-$(BIN_EECS467_LCM_TEST): lcm_test.o $(LIBDEPS)
+$(BIN_EECS467_SEND_MESSAGE): send_message.o $(LIBDEPS)
 	@echo "\t$@"
 	@$(CXX) -o $@ $^ $(LDFLAGS)
+
 
 clean:
 	@rm -f *.o *~ *.a

@@ -10,7 +10,6 @@
 
 #include "a2/CalibrationHandler.hpp"
 #include "a2/CalibrationInfo.hpp"
-#include "a2/GlobalState.hpp"
 
 #include "vx/vx.h"
 #include "vx/vx_util.h"
@@ -38,11 +37,27 @@ struct VxButtonStates {
 	bool colorMask;
 	bool blobDetect;
 	bool moveArm;
-	bool dropBall;
-	bool boardMask;
 };
 
 extern VxButtonStates buttonStates;
+
+struct RenderInfo {
+	image_u32_t* im;
+	std::vector<std::array<float, 2>> redBlobs;
+	std::vector<std::array<float, 2>> greenBlobs;
+	std::vector<std::array<float, 2>> blueBlobs;
+
+	RenderInfo();
+	~RenderInfo();
+	void operator=(const RenderInfo& info);
+};
+
+struct VxHandlerState {
+	pthread_mutex_t renderMutex;
+	RenderInfo data;
+};
+
+extern VxHandlerState globalState;
 
 // you can really only have one instance of VxHandler
 // it's just in a class because it looks nice
@@ -55,7 +70,7 @@ private:
 
 	vx_mouse_event_t last_mouse_event;
 
-	static pthread_mutex_t renderMutex;
+	pthread_mutex_t renderMutex;
 	pthread_t renderPid;
 	pthread_t mainPid;
 
@@ -68,6 +83,8 @@ private:
 public:
 	VxHandler(int width, int height);
 	~VxHandler();
+
+	void changeRenderInfo(const RenderInfo& info);
 
 	void launchThreads();
 

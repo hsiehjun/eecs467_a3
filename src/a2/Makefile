@@ -11,8 +11,7 @@ LIB_A2 = $(LIB_PATH)/liba2.a
 LIB_A2_OBJS = CalibrationHandler.o \
 	CoordinateConverter.o ColorRecognizer.o \
 	Board.o BlobDetector.o LcmHandler.o \
-	Arm.o GamePlayer.o \
-	GlobalState.o
+	Arm.o
 
 ALL = $(LIB_A2)
 

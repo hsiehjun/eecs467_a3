@@ -14,8 +14,6 @@
 #include "a2/Constants.hpp"
 #include "a2/LcmHandler.hpp"
 #include "a2/Arm.hpp"
-#include "a2/GlobalState.hpp"
-#include "a2/GamePlayer.hpp"
 
 // core api
 #include "vx/vx.h"
@@ -37,12 +35,10 @@
 #include "lcmtypes/dynamixel_command_t.hpp"
 #include "lcmtypes/dynamixel_status_list_t.hpp"
 #include "lcmtypes/dynamixel_status_t.hpp"
-#include "lcmtypes/ttt_turn_t.hpp"
 
 #include "imagesource/image_u32.h"
 #include "imagesource/image_source.h"
 #include "imagesource/image_convert.h"
-
 
 class CameraHandler {
 private:
@@ -173,10 +169,6 @@ int main(int argc, char** argv)
 	// getopt
 	getopt_t* gopt = getopt_create();
 	getopt_add_string(gopt, 'f', "file", "", "Use static camera image");
-	getopt_add_string(gopt, 'c', "color", "red", "Specify what color team you are: \"red\" or \"green\"");
-	getopt_add_bool(gopt, 'r', "red", false, "use this option to specify red team");
-	getopt_add_bool(gopt, 'g', "green", false, "use this option to specify green team");
-
 	if (!getopt_parse(gopt, argc, argv, 1)) {
 		getopt_do_usage(gopt);
 		exit(1);
@@ -186,52 +178,31 @@ int main(int argc, char** argv)
 		// if fileName is not empty
 		camera.setStaticImage(fileName);
 	}
+	getopt_destroy(gopt);
 
 	// initialize with first image
 	image_u32_t* tempIm = camera.getImage();
 	CalibrationHandler::instance()->calibrateImageSize(tempIm->height, tempIm->width, true);
 	image_u32_destroy(tempIm);
 
-	OBJECT color;
-	bool redTeam = getopt_get_bool(gopt, "red");
-	bool greenTeam = getopt_get_bool(gopt, "green");
-	if ((!redTeam && !greenTeam) || (redTeam && greenTeam)) {
-		printf("use at least one of -r or -g but not both\n");
-		exit(1);
-	}
-	if (redTeam) {
-		printf("You are RED team\n");
-		color = REDBALL;
-	} else {
-		printf("You are GREEN team\n");
-		color = GREENBALL;
-	}
-	
-	GamePlayer::instance()->init(color);
-	GamePlayer::instance()->launchThreads();
-
 	// lcm
 	LcmHandler::instance()->launchThreads();
-	if(redTeam)
-		LcmHandler::instance()->setOpponentColor("GREEN_TURN");
-	else
-		LcmHandler::instance()->setOpponentColor("RED_TURN");
+
 	// vx
 	VxHandler vx(1024, 768);
 	vx.launchThreads();
-	Arm::instance()->addHomeCommand(0);
 	while (1) {
 		CalibrationInfo calibrationInfo = 
 			CalibrationHandler::instance()->getCalibration();
 		RenderInfo render;
 		render.im = camera.getImage();
 		CalibrationHandler::instance()->clipImage(render.im);
-/*
-		std::array<float, 2> pos;
-		if (Arm::instance()->forwardKinematics(pos)) {
-			printf("pos: %f, %f\n", pos[0], pos[1]);			
-		}
-*/
+
+		// std::array<float, 2> pos;
+		// if (Arm::instance()->forwardKinematics(pos)) {
+		// 	printf("pos: %f, %f\n", pos[0], pos[1]);			
+		// }
+
 		if (buttonStates.blobDetect) {
 			std::vector<BlobDetector::Blob> blobs = 
 				BlobDetector::findBlobs(render.im, calibrationInfo, blobMinPixels);
@@ -259,15 +230,11 @@ int main(int argc, char** argv)
 		if (buttonStates.colorMask) {
 			maskWithColors(render.im, calibrationInfo);
 		}
-		if (buttonStates.boardMask) {
-			maskWithBoard(render.im, calibrationInfo);
-		}
 
-		GlobalState::instance()->setData(render);
+		vx.changeRenderInfo(render);
 		
 		usleep(1e3);
 	}
 
-	getopt_destroy(gopt);
 }
 

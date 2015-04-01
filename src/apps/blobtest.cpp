@@ -54,53 +54,13 @@ void printMatrix(Matrix<BlobCell>& mat) {
 	}
 }
 
-
-void printCommandList(dynamixel_command_list_t list) {
-	for (auto& cmd : list.commands) {
-		printf("%f\t", cmd.position_radians);
-	}
-	printf("\n");
-}
-
 int main(){
-	dynamixel_command_list_t cmdList;
-	Arm::getCommandToPoint(0.1, 0, 0, cmdList);
-	printf("target: ");
-	printCommandList(cmdList);
-	dynamixel_status_list_t statusList;
-	std::array<float, 6> posRadians{{0, 0, 0, -0.1, -0.1, 1.58}};
-	for (int i = 0; i < 6; ++i){
-		dynamixel_status_t status;
-		status.position_radians = posRadians[i];
-		statusList.statuses.push_back(status);
-	}
-	std::vector<dynamixel_command_list_t> cmds = Arm::getCommandByJoints(
-		cmdList, statusList);
-	for (auto& cmd : cmds) {
-		printCommandList(cmd);
-	}
+	std::cout << angle_between(0, 100, 10) << "\n";
+	std::cout << angle_between(340, 20, 10) << "\n";
 
-
-
-	// std::cout << angle_between(0, 100, 10) << "\n";
-	// std::cout << angle_between(340, 20, 10) << "\n";
-
-	// std::cout << angle_between(0, 100, 110) << "\n";
-	// std::cout << angle_between(340, 20, 320) << "\n";
-	// std::cout << angle_between(340, 20, 40) << "\n";
-
-	// std::vector<BlobDetector::Blob> blobs{
-	// 	{1, 1},
-	// 	{11, 10},
-	// 	{1, 12},
-	// 	{9, 1}
-	// };
-	// CalibrationHandler::getBlobCounterClockwise(blobs, blobs.front());
-
-	// for (auto& blob: blobs) {
-	// 	printf("%d, %d\n", blob.x, blob.y);
-	// }
-
+	std::cout << angle_between(0, 100, 110) << "\n";
+	std::cout << angle_between(340, 20, 320) << "\n";
+	std::cout << angle_between(340, 20, 40) << "\n";
 	// std::array<float, 6> angles;
 	// if (!Arm::inverseKinematics(0.05, 0.15, 0, angles)) {
 	// 	std::cout << "IMPOSSIBLE!\n";

@@ -4,21 +4,6 @@
 #include <stdio.h>
 #include <math.h>
 
-std::array<float, 2> CoordinateConverter::polarToCartesian(const std::array<float, 2>& arr) {
-	std::array<float, 2> ret;
-	ret[0] = arr[0] * cos(arr[1]);
-	ret[1] = arr[0] * sin(arr[1]);
-	return ret;
-}
-
-std::array<float, 2> CoordinateConverter::cartesianToPolar(const std::array<float, 2>& arr) {
-	std::array<float, 2> ret;
-	ret[0] = sqrt(arr[0] * arr[0] + arr[1] * arr[1]);
-	ret[1] = atan2(arr[1], arr[0]);
-
-	return ret;
-}
-
 std::array<int, 2> CoordinateConverter::screenToImage(const std::array<float, 2>& arr) {
 	std::array<int, 2> ret;
 
@@ -46,25 +31,11 @@ std::array<float, 2> CoordinateConverter::imageToScreen(const std::array<int, 2>
 std::array<int, 2> CoordinateConverter::globalToBoard(const std::array<float, 2>& arr) {
 	std::array<int, 2> ret;
 	
-	float a0 = CalibrationHandler::instance()->armToRightLength();
-	float a1 = CalibrationHandler::instance()->armToLeftLength();
-	float b = blueSquareSideLength / 2;
-	ret[0] = (int)floor(3 * (arr[0] - b) / (a0 + a1 - 2*b));
-	ret[1] = (int)floor(3 * (arr[1] - b + a0) / (a0 + a1 - 2*b));
+	ret[0] = (int)((arr[0] - (cornerTopLeftLoc[0] + (centerToCenterDistance-boardSideLength)/2.))/(boardSideLength/3));
+	ret[1] = (int)((-arr[1] - (-cornerTopLeftLoc[1] + (centerToCenterDistance-boardSideLength)/2.))/(boardSideLength/3));
 	return ret;
 }
 
-std::array<float, 2> CoordinateConverter::boardToGlobal(const std::array<int, 2>& arr) {
-    std::array<float, 2> ret;
-	
-	float a0 = CalibrationHandler::instance()->armToRightLength();
-	float a1 = CalibrationHandler::instance()->armToLeftLength();
-	float b = blueSquareSideLength / 2;
-	
-	ret[0] = (((float)arr[0] + 0.5) / 3) * (a0 + a1 - 2 * b) + b;
-	ret[1] = (((float)arr[1] + 0.5) / 3) * (a0 + a1 - 2 * b) + b - a0;
-	return ret;
-}
 
 std::array<float, 2> CoordinateConverter::imageToGlobal(const std::array<int, 2>& arr) {
 	Matrix<float> homogenousPt(3, 1);

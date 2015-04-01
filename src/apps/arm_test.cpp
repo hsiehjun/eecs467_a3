@@ -7,37 +7,34 @@
 #include "lcmtypes/dynamixel_status_list_t.hpp"
 #include "lcmtypes/dynamixel_status_t.hpp"
 
+#include <stdio.h>
+
+class Handler
+{
+	public:
+		~Handler() {}
+		void handleMessage(const lcm::ReceiveBuffer* rbuf,
+			const std::string& chan,
+			const dynamixel_command_list_t* msg)
+		{
+			std::cout << "handling" << std::endl;
+			Arm::instance()->moveArm(msg);
+		}
+};
 
 int main() {
 	lcm::LCM lcm;
 
-	float x, y;
-	while (1) {
-		std::cout << "x: ";
-		std::cin >> x;
-		std::cout << "y: ";
-		std::cin >> y; 
 
+	Handler handlerObject;
+	lcm.subscribe("ARM", &Handler::handleMessage, &handlerObject);
 
-		// Arm::instance()->moveArm(x, y, 0.05);
-		// std::array<float, 6> arr;
-		// if (!Arm::instance()->inverseKinematics(x, y, 0.02, arr)) {
-		// 	std::cout << "Impossible!\n";
-		// 	continue;
-		// }
+	while(0 == lcm.handle());
+	return 0;
+	//Arm::instance()->moveArm(Pos);
 
-		// dynamixel_command_list_t list;
-		// for (int i = 0; i < 6; ++i) {
-		// 	dynamixel_command_t cmd;
-		// 	cmd.position_radians = arr[i];
-		// 	cmd.speed = 0.2;
-		// 	cmd.max_torque = 0.4;
-		// 	list.commands.push_back(cmd);
-		// }
-		// list.len = list.commands.size();
-		// lcm.publish("ARM_COMMAND", &list);
-	}
 }
+
 
 
 

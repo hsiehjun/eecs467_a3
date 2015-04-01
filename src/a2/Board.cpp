@@ -10,10 +10,6 @@ Board::Board() : turnState(0)
 	reset();
 }
 
-bool Board::indexInBounds(int x, int y) {
-	return (x >= 0 && x < 3 && y >= 0 && y < 3);
-}
-
 void Board::printBoard()
 {
 	cout << "---" << endl;
@@ -46,14 +42,6 @@ int Board::getNextMove(int player) //player == 1 means player 1. player == 2 mea
 		return wm;
 	}
 
-	//If I can set up a double fork, do it.
-	wm = hasDoubleForkMove(player);
-	if(wm != -1)
-	{
-		cout << "Double forking move for: " << toChar(player) << endl;
-		return wm;
-	}
-
 	//See if I have a fork to play.
 	wm = hasForkingMove(player);
 	if(wm != -1)
@@ -70,25 +58,8 @@ int Board::getNextMove(int player) //player == 1 means player 1. player == 2 mea
 		return wm;
 	}
 
-	//If they can set up a double fork, don't move to that position.
-	int totalMoves = 0;
-	for(int i = 0; i < 3; i++)
-	{
-		for(int j = 0; j < 3; j++)
-		{
-			if(board[i][j] == player || board[i][j] == toOpponent(player))
-				totalMoves++;
-		}
-	}
-	//Opponent is set up for a double fork.
-	bool b=totalMoves == 1 &&
-		  (board[0][0] == toOpponent(player) ||
-		   board[2][0] == toOpponent(player) ||
-		   board[0][2] == toOpponent(player) ||
-		   board[2][2] == toOpponent(player));
-
-	//Take middle if it's open and won't lead to a double fork.
-	if(board[1][1] == 0 && !b) {
+	//Take middle if it's open.
+	if(board[1][1] == 0) {
 		return toInd(1, 1);
 	}
 	 
@@ -111,17 +82,6 @@ int Board::getNextMove(int player) //player == 1 means player 1. player == 2 mea
 			return toInd(i, j);
 	}
 	return -1; //Can't move anywhere.               
-}
-
-void Board::clearBoard() {
-	for(int i = 0; i < 3; i++)
-			for(int j = 0; j < 3; j++)
-				board[i][j] = 0;
-}
-
-
-int& Board::operator()(int x, int y) {
-	return board[x][y];
 }
 
 //Returns -1 if there is no winning move. Returns the index (0-8, rows by columns)
@@ -219,36 +179,6 @@ int Board::hasForkingMove(int p)
 	}
 	if(maxChecks >= 2)
 		return maxInd;
-	return -1;
-}
-
-
-int Board::hasDoubleForkMove(int p)
-{
-	int totalMoves = 0;
-	for(int i = 0; i < 3; i++)
-	{
-		for(int j = 0; j < 3; j++)
-		{
-			if(board[i][j] == p || board[i][j] == toOpponent(p))
-				totalMoves++;
-		}
-	}
-
-	if(totalMoves == 2)
-	{
-		if(board[1][1] == toOpponent(p))
-		{
-			if(board[0][0] == p)
-				return toInd(2, 2);
-			if(board[2][0] == p)
-				return toInd(0, 2);
-			if(board[0][2] == p)
-				return toInd(2, 0);
-			if(board[2][2] == p)
-				return toInd(0, 0);
-		}
-	}
 	return -1;
 }
 

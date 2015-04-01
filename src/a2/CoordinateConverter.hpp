@@ -10,11 +10,10 @@
 
 class CoordinateConverter {
 public:
-	// (r, theta)
-	static std::array<float, 2> polarToCartesian(const std::array<float, 2>& arr);
-
-	// angle in radians, (r, theta)
-	static std::array<float, 2> cartesianToPolar(const std::array<float, 2>& arr);
+	/**
+	 * @brief gets instance of coordinate converter
+	 */
+	static CoordinateConverter* instance();
 
 	/**
 	 * @brief turns screen coordinates to image coordinates
@@ -31,8 +30,6 @@ public:
 	static std::array<float, 2> imageToScreen(const std::array<int, 2>& arr);
 	
 	static std::array<int, 2> globalToBoard(const std::array<float, 2>& arr);
-	
-	static std::array<float, 2> boardToGlobal(const std::array<int, 2>& arr);
 
 	static std::array<float, 2> imageToGlobal(const std::array<int, 2>& arr);
 

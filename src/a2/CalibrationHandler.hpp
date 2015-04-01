@@ -18,7 +18,7 @@ class CalibrationHandler {
 private:
 	enum CALIBRATION_STATE { IDLE, MASKING1, MASKING2, 
 		HSV1, HSV2, HSV3, BOARD1, BOARD2, BOARD3, 
-		BOARD4, BOARD5, BOARD6, 
+		BOARD4, BOARD5, BOARD6, BOARD7,
 		COORDTRANSFORM };
 	CALIBRATION_STATE _state;
 	// mask corners are bottom left and top right of screen
@@ -29,11 +29,8 @@ private:
 
 	// for getting board transform
 	Matrix<float> _imageToGlobal;
-	float _armToRightLength; // meters (a0)
-	float _armToLeftLength; // meters (a1)
 
-	// std::vector<Point<int>> _imageClicks;
-	Point<int> _leftCornerClick;
+	std::vector<Point<int>> _imageClicks;
 	std::vector<Point<float>> _armLocations;
 	bool _validImageToGlobal;
 
@@ -95,10 +92,6 @@ public:
 	int imageWidth();
 
 	int imageHeight();
-	
-	float armToRightLength();
-	
-	float armToLeftLength();
 
 	/**
 	 * @brief gets the message to display about the state
@@ -121,28 +114,11 @@ private:
 		Matrix<float>& afflineTransform);
 
 	static Point<int> getBlobClosestToClick(Point<int> click,
-		std::vector<Point<int>> blobs);
-
-	// counter clockwise with respect too screen coordinates
-	// clockwise with respect to (x, y) pixel indices
-	static void getBlobCounterClockwise(
-		std::vector<Point<int>>& blobs, 
-		Point<int> start);
-
-	static Point<int> getCentroid(const std::vector<Point<int>>& pts);
+		std::vector<BlobDetector::Blob> blobs);
 
 	bool putCalibrationToFile();
-	
-	bool putMaskCalibToFile();
 
 	bool readCalibrationDataFromFile();
-	
-	bool readMaskDataFromFile();
-	
-
-	bool putTransformToFile();
-
-	bool readTransformFromFile();
 };
 
 #endif /* CALIBRATION_HANDLER_HPP */

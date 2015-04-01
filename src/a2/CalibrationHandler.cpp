@@ -22,8 +22,6 @@ CalibrationHandler::CalibrationHandler() : _state(IDLE),
 		exit(1);
 	}
 	readCalibrationDataFromFile();
-	readTransformFromFile();
-	readMaskDataFromFile();
 }
 
 CalibrationHandler* CalibrationHandler::instance() {
@@ -63,8 +61,6 @@ void CalibrationHandler::handleMouseEvent(double x, double y, image_u32_t* im) {
 		case MASKING2:
 			_calibrationInfo.maskXRange[1] = imageIndices[0];
 			_calibrationInfo.maskYRange[0] = imageIndices[1];
-			
-			putMaskCalibToFile();
 			_state = IDLE;
 			break;
 		case HSV1: {
@@ -122,9 +118,8 @@ void CalibrationHandler::handleMouseEvent(double x, double y, image_u32_t* im) {
 			_state = IDLE;
 			break; }
 		case BOARD1:
-		    _armLocations.clear();
-			_leftCornerClick = Point<int>{imageIndices[0],
-				imageIndices[1]};
+			_imageClicks.push_back(Point<int>{imageIndices[0],
+				imageIndices[1]});
 			_state = BOARD2;
 			break;
 		case BOARD2: {
@@ -134,18 +129,13 @@ void CalibrationHandler::handleMouseEvent(double x, double y, image_u32_t* im) {
 				break;
 			}
 			_armLocations.push_back(Point<float>{loc[0], loc[1]});
-			_armToLeftLength = sqrt(loc[0] * loc[0] + loc[1] * loc[1]);
 			_state = BOARD3;
 			break; }
-		case BOARD3: {
-			std::array<float, 2> loc;
-			if (!Arm::instance()->forwardKinematics(loc)) {
-				std::cout << "Rexarm hasn't been initialized\n";
-				break;
-			}
-			_armLocations.push_back(Point<float>{loc[0], loc[1]});
+		case BOARD3:
+			_imageClicks.push_back(Point<int>{imageIndices[0],
+				imageIndices[1]});
 			_state = BOARD4;
-			break; }
+			break;
 		case BOARD4: {
 			std::array<float, 2> loc;
 			if (!Arm::instance()->forwardKinematics(loc)) {
@@ -155,17 +145,21 @@ void CalibrationHandler::handleMouseEvent(double x, double y, image_u32_t* im) {
 			_armLocations.push_back(Point<float>{loc[0], loc[1]});
 			_state = BOARD5;
 			break; }
-		case BOARD5: {
+		case BOARD5:
+			_imageClicks.push_back(Point<int>{imageIndices[0],
+				imageIndices[1]});
+			_state = BOARD6;
+			break;
+		case BOARD6: {
 			std::array<float, 2> loc;
 			if (!Arm::instance()->forwardKinematics(loc)) {
 				std::cout << "Rexarm hasn't been initialized\n";
 				break;
 			}
 			_armLocations.push_back(Point<float>{loc[0], loc[1]});
-			_armToRightLength = sqrt(loc[0] * loc[0] + loc[1] * loc[1]);
-			_state = BOARD6;
+			_state = BOARD7;
 			break; }
-		case BOARD6: {
+		case BOARD7: {
 			// get blobs
 			std::vector<BlobDetector::Blob> blobs =
 				BlobDetector::findBlobs(im, 
@@ -173,10 +167,10 @@ void CalibrationHandler::handleMouseEvent(double x, double y, image_u32_t* im) {
 					blobMinPixels);
 
 			// only get blue blobs
-			std::vector<Point<int>> blueBlobs;
+			std::vector<BlobDetector::Blob> blueBlobs;
 			for (auto& blob : blobs) {
 				if (blob.type == BLUESQUARE) {
-					blueBlobs.push_back(Point<int>{blob.x, blob.y});
+					blueBlobs.push_back(blob);
 				}
 			}
 			if (blueBlobs.size() != 4) {
@@ -184,38 +178,23 @@ void CalibrationHandler::handleMouseEvent(double x, double y, image_u32_t* im) {
 				break;
 			}
 
-            
-			// get blob left of arm
-			Point<int> firstBlob = getBlobClosestToClick(_leftCornerClick, blueBlobs);
+			// getting blob coordinates from clicks
+			std::vector<Point<int>> blobCoords;
+			for (auto& pt : _imageClicks) {
+				blobCoords.push_back(getBlobClosestToClick(pt,
+					blueBlobs));
+			}
 
-			// sort the blobs in counterclockwise order
-			getBlobCounterClockwise(blueBlobs, firstBlob);
-			
-			// shifting pts towards center
-			//float ratio = (boardDiagonalLength - blueSquareDiagonalLength) / 
-			// 	boardDiagonalLength;
-			//Point<int> centroid = getCentroid(blueBlobs);
-			//for (auto& blob: blueBlobs) {
-			//Point<int> delta = blob - centroid;
-			//delta.x *= ratio;
-			//delta.y *= ratio;
-			//    blob = centroid + delta;
-		    //}
-
-			if (!createAfflineTransform(blueBlobs, _armLocations,
+			if (!createAfflineTransform(blobCoords, _armLocations,
 				_imageToGlobal)) {
 				std::cout << "Affline Transform error\n";
 				break;
 			}
 
-			if (!putTransformToFile()) {
-				std::cout << "Unable to save transform to file\n";
-			}
 			_validImageToGlobal = true;
 			_state = IDLE;
 			break; }
-		case COORDTRANSFORM:
-		    pthread_mutex_unlock(&_calibMutex);
+		case COORDTRANSFORM: 
 			printf("Screen Coords: (%f, %f)\n", x, y);
 			printf("Image Coords: (%d, %d)\n", imageIndices[0], imageIndices[1]);
 			Matrix<float> imageCoords(3, 1);
@@ -223,13 +202,8 @@ void CalibrationHandler::handleMouseEvent(double x, double y, image_u32_t* im) {
 			imageCoords(1, 0) = imageIndices[1];
 			imageCoords(2, 0) = 1;
 			Matrix<float> globalCoords = _imageToGlobal * imageCoords;
-			printf("Global Coords: (%f, %f)\n", globalCoords(0), globalCoords(1));
-			std::array<int, 2> boardCoords = CoordinateConverter::globalToBoard(std::array<float, 2>{{globalCoords(0), globalCoords(1)}});
-			printf("Board Coords: (%d, %d)\n", boardCoords[0], boardCoords[1]);
-			printf("\n");
-			
+			printf("Global Coords: (%f, %f)\n", globalCoords(0, 0), globalCoords(1, 0));
 			_state = IDLE;
-			pthread_mutex_lock(&_calibMutex);
 			break;
 	}
 	pthread_mutex_unlock(&_calibMutex);
@@ -275,20 +249,6 @@ int CalibrationHandler::imageHeight() {
 	return ret;
 }
 
-float CalibrationHandler::armToRightLength() {
-    pthread_mutex_lock(&_calibMutex);
-	float ret = _armToRightLength;
-	pthread_mutex_unlock(&_calibMutex);
-    return ret;
-}
-	
-float CalibrationHandler::armToLeftLength() {
-    pthread_mutex_lock(&_calibMutex);
-	float ret = _armToLeftLength;
-	pthread_mutex_unlock(&_calibMutex);
-    return ret;
-}
-
 void CalibrationHandler::calibrateImageSize(int imageHeight, int imageWidth, bool mask) {
 	pthread_mutex_lock(&_calibMutex);
 	_imageHeight = imageHeight;
@@ -303,22 +263,6 @@ void CalibrationHandler::calibrateImageSize(int imageHeight, int imageWidth, boo
 }
 
 void CalibrationHandler::calibrateBoardTransform() {
-    dynamixel_command_list_t cmdList;
-    for (int i = 0; i < 5; ++i) {
-        dynamixel_command_t cmd;
-        cmd.max_torque = 0;
-        cmd.speed = 0;
-        cmd.position_radians = 0;
-        cmdList.commands.push_back(cmd);
-    }
-    dynamixel_command_t cmd;
-    cmd.max_torque = ARM_MAX_TORQUE;
-    cmd.speed = ARM_SPEED;
-    cmd.position_radians = 1.9;
-    cmdList.commands.push_back(cmd);
-    cmdList.len = cmdList.commands.size();
-    Arm::instance()->addCommandList(cmdList);
-
 	pthread_mutex_lock(&_calibMutex);
 	_state = BOARD1;
 	_validImageToGlobal = false;
@@ -366,13 +310,15 @@ std::string CalibrationHandler::getMessage() {
 		case BOARD2:
 			ret = "move arm to left square, then click"; break;
 		case BOARD3:
-			ret = "move arm to far left square, then click"; break;
+			ret = "click square to right of arm"; break;
 		case BOARD4:
-			ret = "move arm to far right square, then click"; break;
+			ret = "move arm to right square then click"; break;
 		case BOARD5:
-			ret = "move arm to right square, then click"; break;
+			ret = "click square to far left"; break;
 		case BOARD6:
-			ret = "make sure image is clear of distractions, then click"; break;
+			ret = "move arm far left square, then click"; break;
+		case BOARD7:
+			ret = "move arm out of board, then click"; break;
 		case COORDTRANSFORM:
 			ret = "click a point"; break;
 		default:
@@ -406,6 +352,7 @@ bool CalibrationHandler::createAfflineTransform(
 		Matrix<float>& afflineTransform) {
 
 	if (imageCoords.size() != armCoords.size() || imageCoords.size() < 3) {
+		// std::cout << "ERROR IN AFFLINE\n";
 		return false;
 	}
 
@@ -424,9 +371,6 @@ bool CalibrationHandler::createAfflineTransform(
 		armVector(index) = armCoords[i].x;
 		armVector(index + 1) = armCoords[i].y;
 	}
-	
-	//imageMatrix.print();
-	//armVector.print();
 
 	Matrix<float> x(6, 1);
 	Matrix<float>::leastSquares(imageMatrix, armVector, x);
@@ -441,11 +385,11 @@ bool CalibrationHandler::createAfflineTransform(
 }
 
 Point<int> CalibrationHandler::getBlobClosestToClick(Point<int> click,
-		std::vector<Point<int>> blobs) {
-	Point<int> closest = *std::min_element(blobs.begin(),
+		std::vector<BlobDetector::Blob> blobs) {
+	BlobDetector::Blob closest = *std::min_element(blobs.begin(),
 		blobs.end(),
-		[&](const Point<int>& A,
-			const Point<int>& B) {
+		[&](const BlobDetector::Blob& A,
+			const BlobDetector::Blob& B) {
 			// just using manhattan distance
 			int dist1 = abs(A.x - click.x) + 
 				abs(A.y - click.y);
@@ -454,41 +398,9 @@ Point<int> CalibrationHandler::getBlobClosestToClick(Point<int> click,
 				abs(B.y - click.y);
 			return dist1 < dist2;
 		});
-	return closest;
+	Point<int> ret{closest.x, closest.y};
+	return ret;
 }
-
-void CalibrationHandler::getBlobCounterClockwise(
-		std::vector<Point<int>>& blobs, 
-		Point<int> start) {
-	Point<int> centroid = getCentroid(blobs);
-
-	float startAngle = atan2(start.y - centroid.y, start.x - centroid.x);
-	std::sort(blobs.begin(), blobs.end(),
-		[&](const Point<int>& A,
-			const Point<int>& B) {
-			float angle1 = atan2(A.y - centroid.y, A.x - centroid.x);
-			float angle2 = atan2(B.y - centroid.y, B.x - centroid.x);
-
-			float diff1 = wrap_to_2pi(angle_diff(angle1, startAngle));
-			float diff2 = wrap_to_2pi(angle_diff(angle2, startAngle));
-
-			return diff1 < diff2;
-
-		});
-}
-
-Point<int> CalibrationHandler::getCentroid(const std::vector<Point<int>>& pts) {
-	Point<int> centroid{0, 0};
-	for (auto& pt : pts) {
-		centroid.x += pt.x;
-		centroid.y += pt.y;
-	}
-	centroid.x /= pts.size();
-	centroid.y /= pts.size();
-	return centroid;
-}
-
-
 
 bool CalibrationHandler::readCalibrationDataFromFile(){
 	std::string line;
@@ -538,60 +450,5 @@ bool CalibrationHandler::putCalibrationToFile(){
 		   << _calibrationInfo.val[0] << " " << _calibrationInfo.val[1] << "\n";
 
 	outputFile.close();
-	return true;
-}
-
-bool CalibrationHandler::readMaskDataFromFile(){
-	std::string line;
-	std::ifstream inputFile (maskCalibFileName.c_str());
-	if(!inputFile.is_open()) return false;
-	
-	inputFile >> _calibrationInfo.maskXRange[0];
-	inputFile >> _calibrationInfo.maskXRange[1];
-	inputFile >> _calibrationInfo.maskYRange[0];
-	inputFile >> _calibrationInfo.maskYRange[1];
-
-	return true;
-}
-
-bool CalibrationHandler::putMaskCalibToFile(){
-	std::ofstream outputFile;
-	outputFile.open(maskCalibFileName.c_str());
-	if(!outputFile.is_open()) return false;
-
-	// Red //
-	outputFile << _calibrationInfo.maskXRange[0] << " " << _calibrationInfo.maskXRange[1] << "\n";
-	outputFile << _calibrationInfo.maskYRange[0] << " " << _calibrationInfo.maskYRange[1] << "\n";
-	
-	outputFile.close();
-	return true;
-}
-
-bool CalibrationHandler::putTransformToFile() {
-	std::ofstream outputFile;
-	outputFile.open(transformCalibFileName.c_str());
-	if (!outputFile.is_open()) return false;
-
-	for (int i = 0; i < 9; ++i) {
-		outputFile << _imageToGlobal(i) <<  "\t";
-	}
-	outputFile << "\n";
-	outputFile << _armToRightLength << "\t";
-	outputFile << _armToLeftLength;
-	outputFile.close();
-	return true;
-}
-
-bool CalibrationHandler::readTransformFromFile() {
-	std::ifstream inputFile(transformCalibFileName.c_str());
-	if(!inputFile.is_open()) return false;
-
-	for (int i = 0; i < 9; ++i) {
-		inputFile >> _imageToGlobal(i);
-	}
-	inputFile >> _armToRightLength;
-	inputFile >> _armToLeftLength;
-	
-	inputFile.close();
 	return true;
 }
